@@ -8,12 +8,13 @@
 
 #import "FastttFilter.h"
 #import <GPUImage/GPUImageFilterGroup.h>
+#import <GPUImage/GPUImageCropFilter.h>
 #import "FastttLookupFilter.h"
 #import "FastttEmptyFilter.h"
 
 @interface FastttFilter ()
 
-@property (readwrite, nonatomic, strong) GPUImageOutput<GPUImageInput> *filter;
+@property (readwrite, nonatomic, strong) GPUImageFilterGroup *filter;
 
 @end
 

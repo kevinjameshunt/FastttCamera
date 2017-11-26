@@ -7,6 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <GPUImage/GPUImage.h>
 #import "FastttCameraInterface.h"
 
 /**
@@ -36,6 +37,8 @@
  */
 @property (nonatomic, strong) UIImage *filterImage;
 
+@property (nonatomic, strong) GPUImageView *previewView;
+
 /**
  *  Returns an instance of FastttFilterCamera with the given lookup image applied to both the camera's live
  *  preview and any captured images.
@@ -50,5 +53,7 @@
  *  @return An instance of FastttFilterCamera.
  */
 + (instancetype)cameraWithFilterImage:(UIImage *)filterImage;
+
+- (void)setZoomScale:(CGFloat)zoomScale;
 
 @end

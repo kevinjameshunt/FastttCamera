@@ -8,6 +8,7 @@
 
 #import <UIKit/UIKit.h>
 #import <GPUImage/GPUImageOutput.h>
+#import <GPUImage/GPUImageFilterGroup.h>
 
 /**
  *  Private class that contains either a lookup filter or an empty filter,
@@ -15,7 +16,7 @@
  */
 @interface FastttFilter : NSObject
 
-@property (readonly, nonatomic, strong) GPUImageOutput<GPUImageInput> *filter;
+@property (readonly, nonatomic, strong) GPUImageFilterGroup *filter;
 
 + (instancetype)filterWithLookupImage:(UIImage *)lookupImage;
 

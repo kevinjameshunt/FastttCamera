@@ -8,6 +8,8 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <GPUImage/GPUImage.h>
+#import <GPUImage/GPUImageCropFilter.h>
+#import <GPUImage/GPUImageLanczosResamplingFilter.h>
 #import "FastttFilterCamera.h"
 #import "IFTTTDeviceOrientation.h"
 #import "UIImage+FastttCamera.h"
@@ -15,6 +17,7 @@
 #import "FastttFocus.h"
 #import "FastttZoom.h"
 #import "FastttFilter.h"
+#import "FastttLookupFilter.h"
 #import "FastttCapturedImage+Process.h"
 
 @interface FastttFilterCamera () <FastttFocusDelegate, FastttZoomDelegate>
@@ -24,7 +27,9 @@
 @property (nonatomic, strong) FastttZoom *fastZoom;
 @property (nonatomic, strong) GPUImageStillCamera *stillCamera;
 @property (nonatomic, strong) FastttFilter *fastFilter;
-@property (nonatomic, strong) GPUImageView *previewView;
+@property (nonatomic, strong) GPUImageCropFilter *cropFilter;
+@property (nonatomic, strong) GPUImageLanczosResamplingFilter *resampleFilter;
+@property (nonatomic) CGFloat zoomScale;
 @property (nonatomic, assign) BOOL deviceAuthorized;
 @property (nonatomic, assign) BOOL isCapturingImage;
 
@@ -72,6 +77,7 @@
         _cameraDevice = FastttCameraDeviceRear;
         _cameraFlashMode = FastttCameraFlashModeOff;
         _cameraTorchMode = FastttCameraTorchModeOff;
+        _zoomScale = 1.0;
         
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(applicationWillEnterForeground:)
@@ -102,6 +108,8 @@
     FastttFilterCamera *fastCamera = [[FastttFilterCamera alloc] init];
     
     fastCamera.fastFilter = [FastttFilter filterWithLookupImage:filterImage];
+    
+    [fastCamera setInitialFilters];
     
     return fastCamera;
 }
@@ -351,6 +359,28 @@
 
 #pragma mark - Filtering
 
+- (void)setInitialFilters {
+    CGRect cropRect = CGRectMake(0, 0, 1, 1);
+    CGSize outputSize = self.previewView.bounds.size;
+    
+    GPUImageCropFilter *cropFilter = [[GPUImageCropFilter alloc] initWithCropRegion:cropRect];
+    [self.fastFilter.filter addFilter:cropFilter];
+    
+    GPUImageLanczosResamplingFilter *resampleFilter = [[GPUImageLanczosResamplingFilter alloc] init] ;
+    [resampleFilter forceProcessingAtSize:outputSize];
+    [self.fastFilter.filter addFilter:resampleFilter];
+    
+    GPUImageFilter *filter = (GPUImageFilter *)[self.fastFilter.filter filterAtIndex:0];
+    [filter addTarget:cropFilter];
+    [cropFilter addTarget:resampleFilter];
+    
+    [self.fastFilter.filter setInitialFilters:@[filter]];
+    [self.fastFilter.filter setTerminalFilter:resampleFilter];
+    
+    self.cropFilter = cropFilter;
+    self.resampleFilter = resampleFilter;
+}
+
 - (FastttFilter *)fastFilter
 {
     if (!_fastFilter) {
@@ -362,8 +392,44 @@
 
 - (void)setFilterImage:(UIImage *)filterImage
 {
-    _fastFilter = [FastttFilter filterWithLookupImage:filterImage];
-    _filterImage = filterImage;
+    if (filterImage) {
+        _filterImage = filterImage;
+        
+        _fastFilter = [FastttFilter filterWithLookupImage:filterImage];
+        [self setInitialFilters];
+        [self setZoomScale:self.zoomScale];
+    }
+}
+
+- (void)setZoomScale:(CGFloat)zoomScale
+{
+    _zoomScale = zoomScale;
+ 
+    if (zoomScale < 1.0)
+        zoomScale = 1.0;
+    else if (zoomScale > 10.0)
+        zoomScale = 10.0;
+    
+    CGRect rect = self.cropFilter.cropRegion;
+    CGFloat ratio = rect.size.width / rect.size.height;
+    
+    if (ratio > 1.0) {
+        ratio = 1 / ratio;
+        rect.origin.x = 0.5 - (1 / zoomScale) / 2;
+        rect.origin.y = 0.5 - (ratio / zoomScale) / 2;
+        rect.size.width = 1 / zoomScale;
+        rect.size.height = ratio / zoomScale;
+    }
+    else {
+        rect.origin.x = 0.5 - ratio / zoomScale / 2;
+        rect.origin.y = 0.5 - 1 / zoomScale / 2;
+        rect.size.width = ratio / zoomScale;
+        rect.size.height = 1 / zoomScale;
+    }
+    
+    NSLog(@"%@", NSStringFromCGRect(rect));
+    self.cropFilter.cropRegion = rect;
+
     [self _insertPreviewLayer];
 }
 
@@ -399,7 +465,7 @@
     }
     
     [_stillCamera removeAllTargets];
-    [self.fastFilter.filter removeAllTargets];
+//    [self.fastFilter.filter removeAllTargets];
     
     [_stillCamera addTarget:self.fastFilter.filter];
     [self.fastFilter.filter addTarget:_previewView];

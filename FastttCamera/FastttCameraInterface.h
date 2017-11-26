@@ -208,6 +208,21 @@
 - (BOOL)zoomToScale:(CGFloat)scale;
 
 
+#pragma mark - Record a video!
+
+/**
+ *  Checks whether the last video has finished processing.
+ *
+ *  @return YES if the last video has finished processing and it is ready to capture, NO if not.
+ */
+- (BOOL)isReadyToCaptureVideo;
+
+/**
+ *  Triggers the camera to start recording video
+ */
+- (void)captureVideo;
+
+
 #pragma mark - Take a picture!
 
 /**
